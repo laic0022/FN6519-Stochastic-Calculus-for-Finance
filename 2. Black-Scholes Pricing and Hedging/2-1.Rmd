@@ -1,0 +1,10 @@
+```{r}
+library(quantmod)
+```
+
+```{r}
+getSymbols("0005.HK",from="2016-02-15",to="2017-05-11",src="yahoo")
+Marketprices<-Ad("0005.HK")
+returns = (Marketprices-lag(Marketprices)) / Marketprices
+```
+
