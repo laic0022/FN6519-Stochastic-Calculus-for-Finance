@@ -1,10 +1,85 @@
 ```{r}
 library(quantmod)
+getSymbols("^TNX",from="2012-01-01",to="2016-01-01",src="yahoo")
+rate=Ad(`TNX`);rate<-rate[!is.na(rate)]
+dev.new(width=10,height=7);chartSeries(rate,up.col="blue",theme="white")
+n = length(!is.na(rate))
 ```
 
 ```{r}
-getSymbols("0005.HK",from="2016-02-15",to="2017-05-11",src="yahoo")
-Marketprices<-Ad("0005.HK")
-returns = (Marketprices-lag(Marketprices)) / Marketprices
+ratek=as.vector(rate);ratekplus1 <- c(ratek[-1],0)
+oneminusbdt <- (sum(ratek*ratekplus1) - sum(ratek)*sum(ratekplus1)/n)/(sum(ratek*ratek) -
+sum(ratek)*sum(ratek)/n)
+adt <- sum(ratekplus1)/n-oneminusbdt*sum(ratek)/n;
+sigmadt <- sqrt(sum((ratekplus1-oneminusbdt*ratek-adt)^2)/n)
+```
+
+```{r}
+for (i in 1:100) {ar.sim<-arima.sim(model=list(ar=c(oneminusbdt)),n.start=100,n)
+y=adt/oneminusbdt+sigmadt*ar.sim;y=y+ratek[1]-y[1]
+time <- as.POSIXct(time(rate), format = "%Y-%m-%d")
+sim_yield <- xts(x = y, order.by = time);
+myPars <- chart_pars();myPars$cex<-1.4
+myTheme <- chart_theme();myTheme$col$line.col <- "blue"
+myTheme$rylab <- FALSE; dev.new(width=24,height=8)
+par(mfrow=c(1,2));print(chart_Series(rate,theme=myTheme,pars=myPars))
+graph <-chart_Series(sim_yield,theme=myTheme,pars=myPars); myylim <- graph$get_ylim()
+myylim[[2]] <- structure(c(min(rate),max(rate)), fixed=TRUE)
+graph$set_ylim(myylim); print(graph); Sys.sleep(1);dev.off()}
+```
+
+```{r}
+library(quantmod)
+getSymbols("^TNX",from="2012-01-01",to="2016-01-01",src="yahoo")
+rate=Ad(`TNX`)
+rate<-0.01*rate[!is.na(rate)]
+dev.new(width=10,height=7);
+chartSeries(rate,up.col="blue",theme="white")
+N = sum(!is.na(rate))
+
+dt <- 1.0/365;
+
+ratek=as.vector(rate)
+ratekplus1 <- c(ratek[-1],0)
+b <- (1-((sum(ratek*ratekplus1) - sum(ratek)*sum(ratekplus1)/N)/(sum(ratek*ratek) - sum(ratek)*sum(ratek)/N)))/dt
+a <- (sum(ratekplus1)-(1-b*dt)*sum(ratek))/N/dt
+sigma <- sqrt(sum((ratekplus1-(1-b)*ratek-a)^2)/N)/sqrt(dt)
+
+t <- 0:(N-1);
+nval=10
+nsim <- 200
+bprice <- rep(0, nval) 
+r <- rep(0, nval) 
+R <- matrix(0,nsim,N);
+
+dev.new(width=10,height=7);
+
+for (n in 1:nval){
+X <- matrix(rnorm(nsim*N,mean=0,sd=sqrt(dt)), nsim, N)
+r[n]=n/10
+for (i in 1:nsim){
+par(mgp=c(2,1,10))
+R[i,1]=r[n]
+for (j in 2:N){R[i,j]=R[i,j-1]+(a-b*R[i,j-1])*dt+sigma*X[i,j]}
+bprice[n]=bprice[n]+exp(-sum(R[i,])*dt)
+plot(t,R[i,],xlab = "Time",ylab = "",type = "l",ylim = c(-0.4,0.6),col = 0,axes=FALSE,main=paste("r0=",r[n],", n=",n,", Sum /",i,"=",round(bprice[n]/i, digits=5)),mgp = c(-2,0,0))
+lines(t, R[i, ], xlab = "Time", type = "l", col = "blue",lwd=2)
+axis(2, pos=0);
+abline(h=a/b,col="purple",lwd=2);
+abline(h=0)
+Sys.sleep(1.0)
+}
+}
+
+T=N/365
+C=-(1-exp(-b*T))/b
+A=-(a/b-sigma*sigma/2/b/b)*(T+C)-sigma*sigma*C*C/4/b
+exp(A+r*C)
+
+plot(r,bprice/nsim,xlab = expression('r'[0]), ylab = "",ylim = c(0.6,1),main="Bond prices estimates",col="red",lwd=2)
+lines(r,exp(A+r*C), xlab = "Time", type = "l", col = "blue",lwd=2)
+legend("bottomleft",legend=c("Monte Carlo Estimation","Analytical PDE Solution"),col=c("red","blue"),lw=3,pch=c(1,NA),lty=c(NA,1),cex=1.5)
+
+
 ```
 
